@@ -1,0 +1,135 @@
+defaults:
+    - override hydra/launcher: submitit_local
+
+# environment
+env_id: PushCube-v1
+obs: rgb
+control_mode: pd_joint_delta_pos # or pd_ee_delta_pose
+num_envs: 8
+num_eval_envs: 2
+env_type: gpu # cpu
+render_mode: rgb_array # ['rgb_array' for quality, or 'sensors' for speed]
+render_size: 64
+
+pre_transform_render_size: 100
+action_repeat: 1
+frame_stack: 3
+
+# evaluation
+checkpoint: ???
+eval_episodes_per_env: 2 # total (eval_episodes_per_env * num_eval_envs number) of eval episodes
+eval_freq: 1000
+
+# replay buffer
+replay_buffer_capacity: 5000
+
+# training
+agent: rad_sac
+init_steps: 1_000
+num_train_steps: 10_000
+batch_size: 32 # TODO: FROST is 256
+hidden_dim: 1024
+# reward_coef: 0.1
+# value_coef: 0.1 
+# consistency_coef: 20
+# rho: 0.5 
+# lr: 3e-4
+# enc_lr_scale: 0.3
+# grad_clip_norm: 20
+# tau: 0.01
+# discount_denom: 5
+# discount_min: 0.95
+# discount_max: 0.995
+# data_dir: ???
+# steps_per_update: 1
+
+# actor
+actor_lr: 1e-3
+actor_beta: 0.9
+actor_log_std_min: -10
+actor_log_std_max: 2
+actor_update_freq: 2
+#entropy_coef: 1e-4
+
+# critic
+critic_lr: 1e-3
+critic_beta: 0.9
+critic_tau: 0.01 # try 0.05 or 0.1
+critic_target_update_freq: 2 # try to change it to 1 and retain 0.01 above
+# num_bins: 101
+# vmin: -10
+# vmax: +10
+
+# encoder
+encoder_type: pixel
+encoder_feature_dim: 50
+encoder_lr: 1e-3
+encoder_tau: 0.05
+num_layers: 4
+num_filters: 32
+latent_dim: 128
+
+# sac
+discount: 0.99
+init_temperature: 0.1
+alpha_lr: 1e-4
+alpha_beta: 0.5
+
+# logging
+exp_name: default
+wandb_project:
+wandb_group: 
+wandb_name:
+wandb_entity: 
+wandb_silent: false
+wandb: false # enable wandb
+save_csv: true
+
+# misc
+save_video_local: false # save video in eval_video for evaluation during training
+save_agent: true
+save_buffer: false
+seed: 1
+detach_encoder: false
+
+# data augs
+data_augs: no_aug
+
+log_interval: 100
+steps_until_freeze: 5000
+num_copies: 1
+
+# convenience
+work_dir: ???
+# task_title: ???
+# multitask: ???
+# tasks: ???
+obs_shape: ???
+action_dim: ???
+episode_length: ???
+# obs_shapes: ???
+# action_dims: ???
+# episode_lengths: ???
+seed_steps: ???
+# bin_size: ???
+
+# # Added for Maniskill RL Baselines Config Convention (don't assign to them)
+env_cfg:
+    env_id: ???
+    control_mode: ??? # pd_joint_delta_pos or pd_ee_delta_pose
+    obs_mode: ???
+    reward_mode: ??? 
+    num_envs: ???
+    sim_backend: ??? # cpu or gpu
+    partial_reset: false
+    env_horizon: ???
+eval_env_cfg:
+    env_id: ???
+    control_mode: ???
+    obs_mode: ???
+    reward_mode: ???
+    num_envs: ???
+    sim_backend: ???
+    env_horizon: ???
+    partial_reset: false
+    num_eval_episodes: ???
