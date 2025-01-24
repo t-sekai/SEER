@@ -185,19 +185,19 @@ class OnlineTrainer(Trainer):
 			rollout_time = time()
 			# sample action for data collection
 			if self._step <self.cfg.init_steps:
-				action = torch.from_numpy(self.env.action_space.sample())
+				action = torch.from_numpy(self.env.action_space.sample()).cuda()
 			else:
 				with utils.eval_mode(self.agent):
-					action = self.agent.sample_action(obs / 255.)
+					action = self.agent.sample_action(obs / 255.).cuda()
 
 			next_obs, reward, vec_terminated, vec_truncated, vec_info = self.env.step(action)
 			vec_done = vec_terminated | vec_truncated
 			true_next_obs = next_obs
 			if vec_done[0]: # use actual final_observation
 				if self.cfg.obs == 'rgb': # RGB
-					true_next_obs[:, -3:, ...] = vec_info["final_observation"]['sensor_data']['base_camera']['rgb'].permute(0,3,1,2)
+					true_next_obs = vec_info["final_observation"]
 				else:
-					obs = vec_info["final_observation"]
+					true_next_obs = vec_info["final_observation"]
 					
 			# allow infinit bootstrap
 			done_bool = vec_terminated.float() 

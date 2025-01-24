@@ -9,6 +9,7 @@ from mani_skill.utils.wrappers.gymnasium import CPUGymWrapper
 from mani_skill.utils import gym_utils
 from functools import partial
 from gymnasium.vector import AsyncVectorEnv, SyncVectorEnv, VectorEnv
+from envs.wrappers.common import ClipActionWrapper, RescaleActionWrapper
 
 import mani_skill.envs
 
@@ -67,6 +68,14 @@ def make_envs(cfg, num_envs, record_video_path, is_eval, logger):
 			]
 		)
 		env = TensorWrapper(env)
+		if cfg['obs'] == 'rgb':
+			env = PixelWrapper(cfg, env, num_envs)
+
+		env_action_scale = 1
+		clip_wrapper = lambda x: gym.wrappers.ClipAction(x)
+		rescale_action_wrapper = lambda x: gym.wrappers.RescaleAction(x, -env_action_scale, env_action_scale)
+		env = clip_wrapper(env)
+		env = rescale_action_wrapper(env)
 	elif cfg.env_type == 'gpu':
 		env = env_make_fn(num_envs=num_envs)
 		control_mode = env.control_mode
@@ -81,12 +90,19 @@ def make_envs(cfg, num_envs, record_video_path, is_eval, logger):
 					save_trajectory=record_episode_kwargs["save_trajectory"],
 					logger=logger,
 				)
-		env = ManiSkillVectorEnv(env, ignore_terminations=True, record_metrics=True)
+		if cfg['obs'] == 'rgb':
+			env = PixelWrapper(cfg, env, num_envs)
+
+		env_action_scale = 1
+		clip_wrapper = lambda x: ClipActionWrapper(x)
+		rescale_action_wrapper = lambda x: RescaleActionWrapper(x, -env_action_scale, env_action_scale)
+		env = clip_wrapper(env)
+		env = rescale_action_wrapper(env)
+		
+		env = ManiSkillVectorEnv(env, num_envs, ignore_terminations=True, max_episode_steps=max_episode_steps, record_metrics=True)
 	else:
 		raise Exception('env_type must be cpu or gpu')
 	
-	if cfg['obs'] == 'rgb':
-		env = PixelWrapper(cfg, env, num_envs)
 	cfg.env_cfg.control_mode = cfg.eval_env_cfg.control_mode = control_mode
 	cfg.env_cfg.env_horizon = cfg.eval_env_cfg.env_horizon = env.max_episode_steps = max_episode_steps
 	

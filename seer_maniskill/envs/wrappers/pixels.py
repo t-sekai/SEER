@@ -30,8 +30,8 @@ class PixelWrapper(gym.Wrapper):
 		vis = vis.permute(0, 3, 1, 2)
 		return vis
 
-	def reset(self):
-		obs, info = self.env.reset()
+	def reset(self, *, seed=None, options=None):
+		obs, info = super().reset(seed=seed, options=options)
 		for _ in range(self._num_frames):
 			obs_frames = self._get_obs(obs)
 		return obs_frames, info
