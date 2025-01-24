@@ -146,7 +146,6 @@ class OnlineTrainer(Trainer):
 		### Start of training ###
 		train_metrics, time_metrics, vec_done, eval_next = {}, {}, [True], True
 		rollout_times = []
-		seed_finish = False
 
 		while self._step <= self.cfg.num_train_steps:
 			# Evaluate agent periodically
@@ -166,7 +165,7 @@ class OnlineTrainer(Trainer):
 
 				if self._step > 0:
 					train_metrics.update(self.final_info_metrics(vec_info))
-					if seed_finish:
+					if self._step > self.cfg.init_steps:
 						time_metrics.update(
 							rollout_time=np.mean(rollout_times),
 							rollout_fps=self.cfg.num_envs/np.mean(rollout_times), # self.cfg.num_envs * len(rollout_times)@steps_per_env@ /sum(rollout_times)
