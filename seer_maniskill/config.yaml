@@ -5,7 +5,7 @@ defaults:
 env_id: PushCube-v1
 obs: rgb
 control_mode: pd_joint_delta_pos # or pd_ee_delta_pose
-num_envs: 8
+num_envs: 32
 num_eval_envs: 2
 env_type: gpu # cpu
 render_mode: rgb_array # ['rgb_array' for quality, or 'sensors' for speed]
@@ -18,16 +18,16 @@ frame_stack: 3
 # evaluation
 checkpoint: ???
 eval_episodes_per_env: 2 # total (eval_episodes_per_env * num_eval_envs number) of eval episodes
-eval_freq: 1000
+eval_freq: 50_000
 
 # replay buffer
 replay_buffer_capacity: 5000
 
 # training
 agent: rad_sac
-init_steps: 1_000
-num_train_steps: 10_000
-batch_size: 32 # TODO: FROST is 256
+init_steps: 5_000
+num_train_steps: 1_000_000
+batch_size: 256 #32 # TODO: FROST is 256
 hidden_dim: 256
 # reward_coef: 0.1
 # value_coef: 0.1 
@@ -44,18 +44,18 @@ hidden_dim: 256
 # steps_per_update: 1
 
 # actor
-actor_lr: 1e-3
+actor_lr: 3e-4 #1e-3
 actor_beta: 0.9
 actor_log_std_min: -10
 actor_log_std_max: 2
-actor_update_freq: 2
+actor_update_freq: 1 #2
 #entropy_coef: 1e-4
 
 # critic
-critic_lr: 1e-3
+critic_lr: 3e-4 #1e-3
 critic_beta: 0.9
-critic_tau: 0.01 # try 0.05 or 0.1
-critic_target_update_freq: 2 # try to change it to 1 and retain 0.01 above
+critic_tau: 0.005 # try 0.05 or 0.1
+critic_target_update_freq: 1 #2 # try to change it to 1 and retain 0.01 above
 # num_bins: 101
 # vmin: -10
 # vmax: +10
@@ -63,15 +63,15 @@ critic_target_update_freq: 2 # try to change it to 1 and retain 0.01 above
 # encoder
 encoder_type: pixel
 encoder_feature_dim: 256
-encoder_lr: 1e-3
-encoder_tau: 0.05
+encoder_lr: 3e-4 #1e-3
+encoder_tau: 0.005 #0.05
 num_layers: 4
 num_filters: 32
 latent_dim: 128
 
 # sac
-discount: 0.99
-init_temperature: 0.1
+discount: 0.95 #0.99
+init_temperature: 1.0 #0.1
 alpha_lr: 1e-4
 alpha_beta: 0.5
 
@@ -95,8 +95,8 @@ detach_encoder: false
 # data augs
 data_augs: no_aug
 
-log_interval: 100
-steps_until_freeze: 5000
+log_interval: 1000
+steps_until_freeze: 500000
 num_copies: 1
 
 # convenience
