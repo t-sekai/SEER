@@ -21,7 +21,7 @@ eval_episodes_per_env: 2 # total (eval_episodes_per_env * num_eval_envs number) 
 eval_freq: 50_000
 
 # replay buffer
-replay_buffer_capacity: 5000
+replay_buffer_capacity: 100_000 #5000
 
 # training
 agent: rad_sac

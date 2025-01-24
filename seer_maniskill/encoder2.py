@@ -102,6 +102,7 @@ class PixelEncoder(nn.Module):
             tie_weights(src=source.convs[i], trg=self.convs[i])
 
     def log(self, L, step, log_freq):
+        return # TODO
         if step % log_freq != 0:
             return
 

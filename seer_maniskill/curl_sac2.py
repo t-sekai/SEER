@@ -105,6 +105,7 @@ class Actor(nn.Module):
         return mu, pi, log_pi, log_std
 
     def log(self, L, step, log_freq=LOG_FREQ):
+        return # TODO
         if step % log_freq != 0:
             return
 
@@ -171,6 +172,7 @@ class Critic(nn.Module):
         return q1, q2
 
     def log(self, L, step, log_freq=LOG_FREQ):
+        return # TODO
         if step % log_freq != 0:
             return
 
