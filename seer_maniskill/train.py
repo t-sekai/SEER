@@ -21,7 +21,7 @@ from envs import make_envs
 from trainer.online_trainer import OnlineTrainer
 
 
-from curl_sac import RadSacAgent
+from curl_sac2 import RadSacAgent # TODO: DEBUG with FROST SAC Architecture
 from torchvision import transforms
 import data_augs as rad
 

@@ -398,6 +398,4 @@ def random_crop(imgs, output_size):
     # selects a random window for each batch element
     cropped_imgs = windows[np.arange(n*num_envs), w1, h1]
     cropped_imgs == imgs.reshape((n, num_envs, *imgs.shape[1:]))
-    import pdb
-    pdb.set_trace()
     return cropped_imgs

@@ -28,7 +28,7 @@ agent: rad_sac
 init_steps: 1_000
 num_train_steps: 10_000
 batch_size: 32 # TODO: FROST is 256
-hidden_dim: 1024
+hidden_dim: 256
 # reward_coef: 0.1
 # value_coef: 0.1 
 # consistency_coef: 20
@@ -62,7 +62,7 @@ critic_target_update_freq: 2 # try to change it to 1 and retain 0.01 above
 
 # encoder
 encoder_type: pixel
-encoder_feature_dim: 50
+encoder_feature_dim: 256
 encoder_lr: 1e-3
 encoder_tau: 0.05
 num_layers: 4

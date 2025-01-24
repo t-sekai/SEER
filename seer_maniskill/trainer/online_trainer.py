@@ -6,7 +6,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from tensordict.tensordict import TensorDict
 import utils
 from trainer.base import Trainer
 
@@ -82,24 +81,6 @@ class OnlineTrainer(Trainer):
 		eval_metrics = dict()
 		eval_metrics.update(self.final_info_metrics(info))
 		return eval_metrics
-
-	def to_td(self, obs, num_envs, action=None, reward=None):
-		"""Before: Creates a TensorDict for a new episode. Return a td with batch (1, ), with obs, action, reward
-		After vectorization: added 1 argument: num_envs, now have batch size (num_envs, 1)"""
-		if isinstance(obs, dict): 
-			obs = TensorDict(obs, batch_size=(), device='cpu') # before vectorization, obs must have its first dimension=1
-		else:
-			obs = obs.unsqueeze(1).cpu()
-		if action is None:
-			action = torch.full((num_envs, self.cfg.action_dim), float('nan')) 
-		if reward is None:
-			reward = torch.full((num_envs,), float('nan'))
-		td = TensorDict(dict(
-			obs=obs,
-			action=action.unsqueeze(1),
-			reward=reward.cpu().unsqueeze(1),
-		), batch_size=(num_envs, 1))
-		return td
 
 	def train(self):
 		device = 'cuda'
@@ -239,8 +220,6 @@ class OnlineTrainer(Trainer):
 				true_next_obs_tmp = torch.stack(true_next_obs_tmp).permute(1,0,2,3,4)
 				networks = [self.agent.critic, self.agent.actor]
 				buffers = [self.latent_buffer_critic, self.latent_buffer_actor]
-				# import pdb
-				# pdb.set_trace()
 
 				obs_tmp = obs_tmp.reshape((self.cfg.num_envs*self.cfg.num_copies, *obs_tmp.shape[2:]))
 				true_next_obs_tmp = true_next_obs_tmp.reshape((self.cfg.num_envs*self.cfg.num_copies, *true_next_obs_tmp.shape[2:]))
@@ -289,3 +268,5 @@ class OnlineTrainer(Trainer):
 			obs = next_obs
 			self._step += self.cfg.num_envs
 			episode_step += 1
+		
+		self.logger.finish() # TODO save agent

@@ -107,9 +107,7 @@ class Logger:
 			print(colored("Logs will be synced with wandb.", "blue", attrs=["bold"]))
 			os.environ["WANDB_SILENT"] = "true" if cfg.wandb_silent else "false"
 			# Modified for Maniskill RL Baseline Logging Convention
-			wandb_tags = cfg_to_group(cfg, return_list=True) + [f"seed:{cfg.seed}"] + ["tdmpc2"]
-			if cfg.setting_tag != 'none':
-				wandb_tags += [cfg.setting_tag]
+			wandb_tags = cfg_to_group(cfg, return_list=True) + [f"seed:{cfg.seed}"] + ["seer"]
 			self._wandb = wandb.init(
 				project=self.project,
 				entity=self.entity,
