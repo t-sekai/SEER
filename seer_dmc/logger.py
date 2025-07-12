@@ -200,9 +200,10 @@ class Logger(object):
         # assert key.startswith('train') or key.startswith('eval')
         # self._try_wandb_log_image(key, image, step)
 
-    # def log_histogram(self, key, histogram, step):
-    #     assert key.startswith('train') or key.startswith('eval')
-    #     self._try_wandb_log_histogram(key, histogram, step)
+    def log_histogram(self, key, histogram, step):
+        pass
+        # assert key.startswith('train') or key.startswith('eval')
+        # self._try_wandb_log_histogram(key, histogram, step)
 
     def dump(self, step):
         self._train_mg.dump(step, 'train')
