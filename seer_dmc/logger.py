@@ -1,4 +1,3 @@
-from torch.utils.tensorboard import SummaryWriter
 from collections import defaultdict
 import json
 import os
@@ -7,6 +6,9 @@ import torch
 import torchvision
 import numpy as np
 from termcolor import colored
+import re
+import wandb
+from omegaconf import OmegaConf
 
 FORMAT_CONFIG = {
     'rl': {
@@ -89,17 +91,42 @@ class MetersGroup(object):
         self._dump_to_console(data, prefix)
         self._meters.clear()
 
+class VideoRecorder:
+    """Utility class for logging evaluation videos."""
+  
+    def __init__(self, wandb, fps=15):
+        self._wandb = wandb
+        self.fps = fps
+        self.frames = []
+        self.enabled = False
 
+    def init(self, env, enabled=True):
+        self.frames = []
+        self.enabled = self._wandb and enabled
+        self.record(env)
+
+    def record(self, env):
+        if self.enabled:
+            self.frames.append(env.render())
+
+    def save(self, step, key='videos/eval_video'):
+        if self.enabled and len(self.frames) > 0:
+            frames = np.stack(self.frames)
+            return self._wandb.log(
+				{key: wandb.Video(frames.transpose(0, 3, 1, 2), fps=self.fps, format='mp4')}, step=step
+			)
+
+def cfg_to_group(args, return_list=False):
+	"""
+	Return a wandb-safe group name for logging.
+	Optionally returns group name as list.
+	"""
+	lst = [f"{args.domain_name}_{args.task_name}", re.sub("[^0-9a-zA-Z]+", "-", args.exp_name)]
+	return lst if return_list else "-".join(lst)
 class Logger(object):
-    def __init__(self, log_dir, use_tb=True, config='rl'):
+    def __init__(self, args, log_dir, config='rl'):
         self._log_dir = log_dir
-        if use_tb:
-            tb_dir = os.path.join(log_dir, 'tb')
-            if os.path.exists(tb_dir):
-                shutil.rmtree(tb_dir)
-            self._sw = SummaryWriter(tb_dir)
-        else:
-            self._sw = None
+
         self._train_mg = MetersGroup(
             os.path.join(log_dir, 'train.log'),
             formating=FORMAT_CONFIG[config]['train']
@@ -109,54 +136,73 @@ class Logger(object):
             formating=FORMAT_CONFIG[config]['eval']
         )
 
-    def _try_sw_log(self, key, value, step):
-        if self._sw is not None:
-            self._sw.add_scalar(key, value, step)
+        self.wandb = args.wandb
+        if not args.wandb:
+            print(colored("Wandb disabled.", "blue", attrs=["bold"]))
+            self._wandb = None
+            self._video = None
+        else:
+            print(colored("Logs will be synced with wandb.", "blue", attrs=["bold"]))
+            wandb_tags = cfg_to_group(args, return_list=True) + [f"seed:{args.seed}"] + ["seer"]
+            self._wandb = wandb.init(
+				project=args.wandb_project,
+				name=args.wandb_name,
+				group=args.wandb_group,
+				tags=wandb_tags,
+				config=args,
+			)
+            self._video = (
+                 VideoRecorder(self._wandb)
+                 if self._wandb and args.save_video
+                 else None
+            )
+    
+    @property
+    def video(self):
+        return self._video
 
-    def _try_sw_log_image(self, key, image, step):
-        if self._sw is not None:
-            assert image.dim() == 3
-            grid = torchvision.utils.make_grid(image.unsqueeze(1))
-            self._sw.add_image(key, grid, step)
+    def _try_wandb_log(self, key, value, step):
+        if self.wandb:
+            self._wandb.log(data={key: value}, step=step)
 
-    def _try_sw_log_video(self, key, frames, step):
-        if self._sw is not None:
-            frames = torch.from_numpy(np.array(frames))
-            frames = frames.unsqueeze(0)
-            self._sw.add_video(key, frames, step, fps=30)
+    # def _try_wandb_log_image(self, key, image, step):
+    #     if self.wandb:
+    #         # assert image.dim() == 3
+    #         # grid = torchvision.utils.make_grid(image.unsqueeze(1))
+    #         # self._sw.add_image(key, grid, step)
+    #         pass
 
-    def _try_sw_log_histogram(self, key, histogram, step):
-        if self._sw is not None:
-            self._sw.add_histogram(key, histogram, step)
+    # def _try_wandb_log_histogram(self, key, histogram, step):
+    #     if self.wandb:
+    #         # self._sw.add_histogram(key, histogram, step)
+    #         pass
 
     def log(self, key, value, step, n=1):
         assert key.startswith('train') or key.startswith('eval')
         if type(value) == torch.Tensor:
             value = value.item()
-        self._try_sw_log(key, value / n, step)
+        self._try_wandb_log(key, value / n, step)
         mg = self._train_mg if key.startswith('train') else self._eval_mg
         mg.log(key, value, n)
 
     def log_param(self, key, param, step):
-        self.log_histogram(key + '_w', param.weight.data, step)
-        if hasattr(param.weight, 'grad') and param.weight.grad is not None:
-            self.log_histogram(key + '_w_g', param.weight.grad.data, step)
-        if hasattr(param, 'bias'):
-            self.log_histogram(key + '_b', param.bias.data, step)
-            if hasattr(param.bias, 'grad') and param.bias.grad is not None:
-                self.log_histogram(key + '_b_g', param.bias.grad.data, step)
+        pass
+        # self.log_histogram(key + '_w', param.weight.data, step)
+        # if hasattr(param.weight, 'grad') and param.weight.grad is not None:
+        #     self.log_histogram(key + '_w_g', param.weight.grad.data, step)
+        # if hasattr(param, 'bias'):
+        #     self.log_histogram(key + '_b', param.bias.data, step)
+        #     if hasattr(param.bias, 'grad') and param.bias.grad is not None:
+        #         self.log_histogram(key + '_b_g', param.bias.grad.data, step)
 
     def log_image(self, key, image, step):
-        assert key.startswith('train') or key.startswith('eval')
-        self._try_sw_log_image(key, image, step)
+        pass
+        # assert key.startswith('train') or key.startswith('eval')
+        # self._try_wandb_log_image(key, image, step)
 
-    def log_video(self, key, frames, step):
-        assert key.startswith('train') or key.startswith('eval')
-        self._try_sw_log_video(key, frames, step)
-
-    def log_histogram(self, key, histogram, step):
-        assert key.startswith('train') or key.startswith('eval')
-        self._try_sw_log_histogram(key, histogram, step)
+    # def log_histogram(self, key, histogram, step):
+    #     assert key.startswith('train') or key.startswith('eval')
+    #     self._try_wandb_log_histogram(key, histogram, step)
 
     def dump(self, step):
         self._train_mg.dump(step, 'train')

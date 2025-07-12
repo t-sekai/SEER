@@ -16,3 +16,15 @@ See instructions in Kaixhin's [Rainbow](https://github.com/Kaixhin/Rainbow). Add
 
 ## Instructions
 See instructions in [CURL](https://github.com/MishaLaskin/curl). Additional hyperparameters are steps_until_freeze and num_copies. Example scripts for using large replay buffers (run_lb_cartpole.sh) and small replay buffers (run_sb_cartpole.sh) can be found in the scripts folder.
+
+```
+CUDA_VISIBLE_DEVICES=0 python train.py \
+    --domain_name cartpole \
+    --task_name swingup \
+    --encoder_type pixel \
+    --action_repeat 8 \
+    --save_tb --pre_transform_image_size 100 --image_size 84 \
+    --work_dir ./tmp \
+    --frame_stack 3 \
+    --seed -1 --critic_lr 1e-3 --actor_lr 1e-3 --eval_freq 10000 --batch_size 128 --num_train_steps 1000000 
+```

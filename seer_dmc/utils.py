@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import torch.nn as nn
-import gym
+import gymnasium as gym
 import os
 from collections import deque
 import random
@@ -177,9 +177,9 @@ class ReplayBuffer(Dataset):
         next_obses = self.next_obses[idxs]
         pos = obses.copy()
 
-        obses = random_crop(obses, self.image_size)
-        next_obses = random_crop(next_obses, self.image_size)
-        pos = random_crop(pos, self.image_size)
+        obses = random_shift(obses)#, self.image_size)
+        next_obses = random_shift(next_obses)#, self.image_size)
+        pos = random_shift(pos)#, self.image_size)
     
         obses = torch.as_tensor(obses, device=self.device).float()
         next_obses = torch.as_tensor(
@@ -335,34 +335,34 @@ class ReplayBuffer(Dataset):
     def __len__(self):
         return self.capacity 
 
-class FrameStack(gym.Wrapper):
-    def __init__(self, env, k):
-        gym.Wrapper.__init__(self, env)
-        self._k = k
-        self._frames = deque([], maxlen=k)
-        shp = env.observation_space.shape
-        self.observation_space = gym.spaces.Box(
-            low=0,
-            high=1,
-            shape=((shp[0] * k,) + shp[1:]),
-            dtype=env.observation_space.dtype
-        )
-        self._max_episode_steps = env._max_episode_steps
+# class FrameStack(gym.Wrapper): // unused
+#     def __init__(self, env, k):
+#         gym.Wrapper.__init__(self, env)
+#         self._k = k
+#         self._frames = deque([], maxlen=k)
+#         shp = env.observation_space.shape
+#         self.observation_space = gym.spaces.Box(
+#             low=0,
+#             high=1,
+#             shape=((shp[0] * k,) + shp[1:]),
+#             dtype=env.observation_space.dtype
+#         )
+#         self._max_episode_steps = env._max_episode_steps
 
-    def reset(self):
-        obs = self.env.reset()
-        for _ in range(self._k):
-            self._frames.append(obs)
-        return self._get_obs()
+#     def reset(self):
+#         obs = self.env.reset()
+#         for _ in range(self._k):
+#             self._frames.append(obs)
+#         return self._get_obs()
 
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        self._frames.append(obs)
-        return self._get_obs(), reward, done, info
+#     def step(self, action):
+#         obs, reward, done, info = self.env.step(action)
+#         self._frames.append(obs)
+#         return self._get_obs(), reward, done, info
 
-    def _get_obs(self):
-        assert len(self._frames) == self._k
-        return np.concatenate(list(self._frames), axis=0)
+#     def _get_obs(self):
+#         assert len(self._frames) == self._k
+#         return np.concatenate(list(self._frames), axis=0)
 
 
 def center_crop_image(image, output_size):
@@ -393,5 +393,22 @@ def random_crop(imgs, output_size):
     windows = view_as_windows(
         imgs, (1, output_size, output_size, 1))[..., 0,:,:, 0]
     # selects a random window for each batch element
+    cropped_imgs = windows[np.arange(n), w1, h1]
+    return cropped_imgs
+
+def random_shift(imgs: np.ndarray, pad: int = 3) -> np.ndarray:
+    """
+    Random replicate-pad shift (DrQ-style) in NumPy.
+    imgs: (N, C, H, W) float/uint8 array with H == W.
+    Returns the same shape/dtype.
+    """
+    n, _, h, w = imgs.shape
+    assert h == w, "Images must be square"
+    imgs = np.pad(imgs, ((0, 0), (0, 0), (pad, pad), (pad, pad)), mode="edge")
+    imgs = imgs.transpose(0, 2, 3, 1)
+    w1 = np.random.randint(0, 2 * pad + 1, n)
+    h1 = np.random.randint(0, 2 * pad + 1, n)
+    windows = view_as_windows(
+        imgs, (1, h, w, 1))[..., 0,:,:, 0]
     cropped_imgs = windows[np.arange(n), w1, h1]
     return cropped_imgs

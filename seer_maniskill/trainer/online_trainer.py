@@ -238,7 +238,7 @@ class OnlineTrainer(Trainer):
 			# Update agent
 			if self._step >=self.cfg.init_steps:
 				update_time = time()
-				num_updates = 1 
+				num_updates = 1 # TODO: is this the problem?
 				for _ in range(num_updates):
 					if self._step <self.cfg.steps_until_freeze:
 						self.agent.update(self.replay_buffer, L=None, step=self._step, detach_fc=False, random_crop=self.random_crop)

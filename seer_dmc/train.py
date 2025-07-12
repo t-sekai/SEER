@@ -1,14 +1,15 @@
 import numpy as np
 import torch
+from torch import nn
+from torch.nn import functional as F
 import argparse
 import os
 import math
-import gym
 import sys
 import random
 import time
 import json
-import dmc2gym
+from envs.dmcontrol import make_env
 import copy
 
 import utils
@@ -18,7 +19,8 @@ from video import VideoRecorder
 from curl_sac import RadSacAgent
 from torchvision import transforms
 import data_augs as rad
-
+from tqdm import tqdm
+     
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -68,13 +70,20 @@ def parse_args():
     # misc
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--work_dir', default='.', type=str)
-    parser.add_argument('--save_tb', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
     parser.add_argument('--save_video', default=False, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--detach_encoder', default=False, action='store_true')
+
+    # wandb
+    parser.add_argument('--wandb', default=False, action="store_true")
+    parser.add_argument('--exp_name', default='default', type=str)
+    parser.add_argument('--wandb_project', default='seer_dmc', type=str)
+    parser.add_argument('--wandb_name', default='', type=str)
+    parser.add_argument('--wandb_group', default='', type=str)
+
     # data augs
-    parser.add_argument('--data_augs', default='crop', type=str)
+    parser.add_argument('--data_augs', default='crop', type=str) # actually shift
 
 
     parser.add_argument('--log_interval', default=100, type=int)
@@ -85,15 +94,16 @@ def parse_args():
     return args
 
 
-def evaluate(env, agent, video, num_episodes, L, step, args):
+def evaluate(env, agent, num_episodes, L, step, args):
     all_ep_rewards = []
 
     def run_eval_loop(sample_stochastically=True):
         start_time = time.time()
         prefix = 'stochastic_' if sample_stochastically else ''
-        for i in range(num_episodes):
+        for i in tqdm(range(num_episodes)):
             obs = env.reset()
-            video.init(enabled=(i == 0))
+            if args.save_video:
+                L.video.init(env, enabled=(i == 0))
             done = False
             episode_reward = 0
             while not done:
@@ -106,10 +116,11 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
                     else:
                         action = agent.select_action(obs / 255.)
                 obs, reward, done, _ = env.step(action)
-                video.record(env)
+                if args.save_video:
+                    L.video.record(env)
                 episode_reward += reward
-
-            video.save('%d.mp4' % step)
+            if args.save_video:
+                L.video.save(step)
             L.log('eval/' + prefix + 'episode_reward', episode_reward, step)
             all_ep_rewards.append(episode_reward)
         
@@ -189,26 +200,12 @@ def main():
         args.__dict__["seed"] = np.random.randint(1,1000000)
     utils.set_seed_everywhere(args.seed)
 
-    pre_transform_image_size = args.pre_transform_image_size if 'crop' in args.data_augs else args.image_size
+    pre_transform_image_size = args.image_size
 
-    env = dmc2gym.make(
-        domain_name=args.domain_name,
-        task_name=args.task_name,
-        seed=args.seed,
-        visualize_reward=False,
-        from_pixels=(args.encoder_type == 'pixel'),
-        height=pre_transform_image_size,
-        width=pre_transform_image_size,
-        frame_skip=args.action_repeat
-    )
+    env = make_env(args)
  
-    env.seed(args.seed)
     project_name=args.domain_name+args.task_name
     group_name=""+str(args.replay_buffer_capacity//1000)+"k"+str(args.steps_until_freeze//1000)+"k"+str(args.num_copies)
-
-    # stack several consecutive frames together
-    if args.encoder_type == 'pixel':
-        env = utils.FrameStack(env, k=args.frame_stack)
     
     # make directory
     # ts = time.gmtime() 
@@ -221,10 +218,10 @@ def main():
     args.work_dir = args.work_dir + '/'  + exp_name
 
     utils.make_dir(args.work_dir)
-    video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
+    # video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
     model_dir = utils.make_dir(os.path.join(args.work_dir, 'model'))
 
-    video = VideoRecorder(video_dir if args.save_video else None)
+    # video = VideoRecorder(video_dir if args.save_video else None)
 
     with open(os.path.join(args.work_dir, 'args.json'), 'w') as f:
         json.dump(vars(args), f, sort_keys=True, indent=4)
@@ -281,18 +278,18 @@ def main():
         device=device
     )
 
-    L = Logger(args.work_dir, use_tb=args.save_tb)
+    L = Logger(args, args.work_dir)
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
 
-    def get_cropped_obs_batch(obs, next_obs):
+    def get_shift_obs_batch(obs, next_obs):
         obs = obs.astype(np.uint8)
         next_obs = next_obs.astype(np.uint8)
-        cpu_obs_tmp = utils.random_crop(obs, args.image_size)
-        obs_tmp = torch.as_tensor(cpu_obs_tmp, device=device).float()
-        cpu_next_obs_tmp = utils.random_crop(next_obs, args.image_size)
-        next_obs_tmp = torch.as_tensor(cpu_next_obs_tmp, device=device).float()
+        obs_tmp = utils.random_shift(obs) #utils.random_crop(obs,self.cfg.render_size)
+        obs_tmp = torch.as_tensor(obs, device=device).float()
+        next_obs_tmp = utils.random_shift(next_obs) #utils.random_crop(next_obs,self.cfg.render_size)
+        next_obs_tmp = torch.as_tensor(next_obs, device=device).float()
         return obs_tmp / 255, next_obs_tmp / 255
 
     def get_latent_obs(network, obses, next_obses):
@@ -319,7 +316,7 @@ def main():
             # repeat num_copies times along batch dimension to get different crops
             raw_obses_repeated = np.repeat(replay_buffer.obses[start:end], args.num_copies, axis=0)
             raw_next_obses_repeated = np.repeat(replay_buffer.next_obses[start:end], args.num_copies, axis=0)
-            tmp_obses, tmp_next_obses = get_cropped_obs_batch(raw_obses_repeated, raw_next_obses_repeated)
+            tmp_obses, tmp_next_obses = get_shift_obs_batch(raw_obses_repeated, raw_next_obses_repeated)
 
             conv4_obses, conv4_next_obses = None, None
             for i in range(len(buffers)):
@@ -340,13 +337,13 @@ def main():
                 buffer.full = num_transitions >= buffer.capacity
             k += 1
 
-    for step in range(args.num_train_steps):
+    for step in tqdm(range(args.num_train_steps)):
         # evaluate agent periodically
 
         if step % args.eval_freq == 0:
             L.log('eval/episode', episode, step)
             
-            evaluate(env, agent, video, args.num_eval_episodes, L, step,args)
+            evaluate(env, agent, args.num_eval_episodes, L, step,args)
             if args.save_model:
                 agent.save_curl(model_dir, step)
                 agent.save(model_dir, step)
@@ -417,7 +414,7 @@ def main():
             # similar to the "elif step == args.steps_until_freeze" procedure
             raw_obs_repeated = np.repeat(np.expand_dims(obs, axis=0), args.num_copies, axis=0)
             raw_next_obs_repeated = np.repeat(np.expand_dims(next_obs, axis=0), args.num_copies, axis=0)
-            obs_tmp, next_obs_tmp = get_cropped_obs_batch(raw_obs_repeated, raw_next_obs_repeated)
+            obs_tmp, next_obs_tmp = get_shift_obs_batch(raw_obs_repeated, raw_next_obs_repeated)
             networks = [agent.critic, agent.actor]
             buffers = [latent_buffer_critic, latent_buffer_actor]
 
