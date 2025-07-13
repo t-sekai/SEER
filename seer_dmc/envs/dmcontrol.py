@@ -24,7 +24,7 @@ def get_obs_shape(env):
 
 
 class DMControlWrapper(gym.Wrapper):
-	def __init__(self, env, domain):
+	def __init__(self, env, domain, frame_skip=2):
 		self.env = env
 		self.camera_id = 2 if domain == 'quadruped' else 0
 		obs_shape = get_obs_shape(env)
@@ -38,6 +38,7 @@ class DMControlWrapper(gym.Wrapper):
 			high=np.full(action_shape, env.action_spec().maximum),
 			dtype=env.action_spec().dtype)
 		self.action_spec_dtype = env.action_spec().dtype
+		self._frame_skip = frame_skip
 
 	@property
 	def unwrapped(self):
@@ -53,7 +54,7 @@ class DMControlWrapper(gym.Wrapper):
 	def step(self, action):
 		reward = 0
 		action = action.astype(self.action_spec_dtype)
-		for _ in range(2):
+		for _ in range(self._frame_skip):
 			step = self.env.step(action)
 			reward += step.reward
 		return self._obs_to_array(step.observation), reward, False, defaultdict(float)
@@ -102,7 +103,7 @@ def make_env(args):
 					 task_kwargs={'random': args.seed},
 					 visualize_reward=False)
 	env = action_scale.Wrapper(env, minimum=-1., maximum=1.)
-	env = DMControlWrapper(env, domain)
+	env = DMControlWrapper(env, domain, frame_skip=args.action_repeat)
 	env = Pixels(env, num_frames=args.frame_stack, size=args.image_size)
 	episode_length = 1000
 	frame_skip = args.action_repeat

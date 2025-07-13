@@ -94,7 +94,7 @@ class MetersGroup(object):
 class VideoRecorder:
     """Utility class for logging evaluation videos."""
   
-    def __init__(self, wandb, fps=15):
+    def __init__(self, wandb, fps=30):
         self._wandb = wandb
         self.fps = fps
         self.frames = []
