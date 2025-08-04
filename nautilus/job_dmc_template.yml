@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: $job_name$
+  namespace: ucsd-haosulab
+  labels:
+    nautilus.io/rl: "true"
+
+spec:
+  ttlSecondsAfterFinished: 21600
+  template:
+    metadata:
+      labels:
+        nautilus.io/rl: "true"
+    spec:
+      containers:
+        - name: work-container
+          image: nicklashansen/tdmpc2:1.0.1 # docker image
+          
+          # imagePullPolicy: Always
+          command:
+            - bash
+            - -c
+            - |
+              cd /root
+              git clone https://github.com/t-sekai/SEER.git
+              cd SEER/seer_dmc
+              pip install scikit-image matplotlib
+              export MUJOCO_GL=egl
+              mkdir tmp
+              wandb login $wandb_key$
+              # run your command here
+              $command$
+          resources:
+            requests:
+              cpu: "$cpu_request$"
+              memory: "$mem_request$"
+              ephemeral-storage: "$storage_request$"
+              nvidia.com/gpu: "$gpu_request$"
+            limits:
+              cpu: "$cpu_request$"
+              memory: "$mem_request$"
+              ephemeral-storage: "$storage_request$"
+              nvidia.com/gpu: "$gpu_request$"
+      restartPolicy: Never
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: nautilus.io/group
+                  operator: In
+                  values:
+                    - haosu
+                - key: nvidia.com/gpu.product
+                  operator: In
+                  values:
+                    - NVIDIA-GeForce-RTX-2080-Ti
+  backoffLimit: 0

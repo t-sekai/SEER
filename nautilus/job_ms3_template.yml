@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: $job_name$
+  namespace: ucsd-haosulab
+  labels:
+    nautilus.io/rl: "true"
+
+spec:
+  ttlSecondsAfterFinished: 21600
+  template:
+    metadata:
+      labels:
+        nautilus.io/rl: "true"
+    spec:
+      containers:
+        - name: work-container
+          image: maniskill/base:latest # docker image
+          
+          # imagePullPolicy: Always
+          command:
+            - bash
+            - -c
+            - |
+              pip install torch torchvision torchaudio
+              pip install hydra-core hydra-submitit-launcher scikit-image pandas termcolor tensordict wandb[media]
+              pip install --upgrade mani_skill
+              cd /root
+              git clone https://github.com/t-sekai/SEER.git
+              cd SEER
+              wandb login $wandb_key$
+              # run your command here
+              $command$
+          resources:
+            requests:
+              cpu: "$cpu_request$"
+              memory: "$mem_request$"
+              ephemeral-storage: "$storage_request$"
+              nvidia.com/gpu: "$gpu_request$"
+            limits:
+              cpu: "$cpu_request$"
+              memory: "$mem_request$"
+              ephemeral-storage: "$storage_request$"
+              nvidia.com/gpu: "$gpu_request$"
+      restartPolicy: Never
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: nautilus.io/group
+                  operator: In
+                  values:
+                    - haosu
+                - key: nvidia.com/gpu.product
+                  operator: In
+                  values:
+                    - NVIDIA-GeForce-RTX-2080-Ti
+  backoffLimit: 0
