@@ -185,14 +185,14 @@ class ReplayBuffer(Dataset):
         actions = torch.as_tensor(self.actions[idxs], device=self.device)
         rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
         not_dones = torch.as_tensor(self.not_dones[idxs], device=self.device)
-
         pos = torch.as_tensor(pos, device=self.device).float()
-        cpc_kwargs = dict(obs_anchor=obses, obs_pos=pos,
-                          time_anchor=None, time_pos=None)
         
         obses = random_crop(obses) #random_crop(obses, self.image_size)
         next_obses = random_crop(next_obses) #random_crop(next_obses, self.image_size)
         pos = random_crop(pos) #random_crop(pos, self.image_size)
+
+        cpc_kwargs = dict(obs_anchor=obses, obs_pos=pos,
+                          time_anchor=None, time_pos=None)
 
         return obses, actions, rewards, next_obses, not_dones, cpc_kwargs
 

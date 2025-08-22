@@ -17,7 +17,7 @@ frame_stack: 3
 
 # evaluation
 checkpoint: ???
-eval_episodes_per_env: 2 # total (eval_episodes_per_env * num_eval_envs number) of eval episodes
+eval_episodes_per_env: 5 # total (eval_episodes_per_env * num_eval_envs number) of eval episodes
 eval_freq: 50_000
 
 # replay buffer
@@ -29,6 +29,7 @@ init_steps: 5_000
 num_train_steps: 1_000_000
 batch_size: 256 #32 # TODO: FROST is 256
 hidden_dim: 256
+utd: 0.25
 # reward_coef: 0.1
 # value_coef: 0.1 
 # consistency_coef: 20
